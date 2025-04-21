@@ -1,0 +1,10 @@
+services:
+  drand:
+    image: drand-poc:latest
+    restart: always
+    environment:
+      - BASE_DOMAIN=http://localhost
+    volumes:
+      - ./data:/data
+    ports:
+      - "8084:8083"

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Time-Locked Notes</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/water.css@2/out/water.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        .hidden {
+            display: none;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .copy-btn {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Time-Locked Notes</h1>
+    <p>Create a note that can only be decrypted after a specific time.</p>
+    
+    <form id="note-form">
+        <label for="text">Note Content:</label>
+        <textarea id="text" name="text" rows="5" required></textarea>
+        
+        <label for="unlock-at">Unlock Time (UTC):</label>
+        <input type="datetime-local" id="unlock-at" name="unlock-at" required>
+        
+        <button type="submit">Create Note</button>
+    </form>
+    
+    <div id="result" class="result hidden">
+        <h2>Note Created!</h2>
+        <p>Your note has been encrypted and stored. It can be accessed at:</p>
+        <p><a id="note-url" href="#" target="_blank"></a></p>
+        <button id="copy-btn" class="copy-btn">Copy URL</button>
+        <p><small>The note will be automatically deleted 7 days after the unlock time.</small></p>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set the minimum unlock time to now + 1 minute
+            const now = new Date();
+            now.setMinutes(now.getMinutes() + 1);
+            const minDateTime = now.toISOString().slice(0, 16);
+            document.getElementById('unlock-at').min = minDateTime;
+            
+            // Set the default unlock time to now + 1 hour
+            const defaultTime = new Date();
+            defaultTime.setHours(defaultTime.getHours() + 1);
+            document.getElementById('unlock-at').value = defaultTime.toISOString().slice(0, 16);
+            
+            // Handle form submission
+            document.getElementById('note-form').addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const text = document.getElementById('text').value;
+                const unlockAtLocal = document.getElementById('unlock-at').value;
+                
+                // Convert local time to UTC
+                const unlockAt = new Date(unlockAtLocal).toISOString();
+                
+                // Create the request payload
+                const payload = {
+                    text: text,
+                    unlock_at: unlockAt
+                };
+                
+                // Send the request to the server
+                fetch('/api/note', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to create note');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Display the result
+                    document.getElementById('note-url').href = data.url;
+                    document.getElementById('note-url').textContent = data.url;
+                    document.getElementById('result').classList.remove('hidden');
+                    
+                    // Scroll to the result
+                    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+                })
+                .catch(error => {
+                    alert('Error: ' + error.message);
+                });
+            });
+            
+            // Handle copy button
+            document.getElementById('copy-btn').addEventListener('click', function() {
+                const url = document.getElementById('note-url').textContent;
+                navigator.clipboard.writeText(url)
+                    .then(() => {
+                        alert('URL copied to clipboard!');
+                    })
+                    .catch(err => {
+                        console.error('Failed to copy URL: ', err);
+                    });
+            });
+        });
+    </script>
+</body>
+</html>
