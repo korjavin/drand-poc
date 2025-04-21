@@ -17,6 +17,14 @@ import (
 	"github.com/korjavin/drand-poc/storage"
 )
 
+// contextKey is a custom type for context keys to avoid collisions
+type contextKey string
+
+// Context keys
+const (
+	requestIDKey contextKey = "request_id"
+)
+
 // Server represents the HTTP server
 type Server struct {
 	store      storage.Store
@@ -82,7 +90,7 @@ func (s *Server) Start(addr string) error {
 func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestID := uuid.New().String()
-		ctx := context.WithValue(r.Context(), "request_id", requestID)
+		ctx := context.WithValue(r.Context(), requestIDKey, requestID)
 		r = r.WithContext(ctx)
 
 		start := time.Now()
@@ -105,7 +113,7 @@ func (s *Server) loggingMiddleware(next http.Handler) http.Handler {
 
 // handleCreateNote handles the POST /api/note endpoint
 func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
-	requestID := r.Context().Value("request_id").(string)
+	requestID := r.Context().Value(requestIDKey).(string)
 	logger := s.logger.With("request_id", requestID)
 
 	// Parse the request body
@@ -195,7 +203,7 @@ func (s *Server) handleCreateNote(w http.ResponseWriter, r *http.Request) {
 
 // handleGetNote handles the GET /{id}/{h} endpoint
 func (s *Server) handleGetNote(w http.ResponseWriter, r *http.Request) {
-	requestID := r.Context().Value("request_id").(string)
+	requestID := r.Context().Value(requestIDKey).(string)
 	logger := s.logger.With("request_id", requestID)
 
 	// Extract the ID and hash from the URL
@@ -233,7 +241,7 @@ func (s *Server) handleGetNote(w http.ResponseWriter, r *http.Request) {
 			logger.Info("Too early to decrypt note", "id", id, "hash", hash, "unlock_at", note.UnlockAt)
 
 			// Calculate the remaining time
-			remaining := note.UnlockAt.Sub(time.Now())
+			remaining := time.Until(note.UnlockAt)
 
 			// Render the "too early" template
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
